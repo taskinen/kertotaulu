@@ -522,6 +522,10 @@
       el.classList.add('no-anim');
       placePet(el, room.spots[p.id]);
     });
+    Object.keys(DECOR_DEPTH).forEach(function (id) {
+      var d = $('.decor-' + id);
+      if (d) d.style.zIndex = String(decorDepth(id));
+    });
     void roomEl.offsetWidth;
     $all('.pet.no-anim').forEach(function (el) { el.classList.remove('no-anim'); });
   }
@@ -531,7 +535,23 @@
     var s = room.s;
     el.style.width = s + 'px';
     el.style.transform = 'translate(' + (pos.x - s / 2).toFixed(1) + 'px,' + (pos.y - s).toFixed(1) + 'px) scale(' + (pos.k || 1).toFixed(3) + ')';
-    el.style.zIndex = String(Math.round(pos.y) + (pos.z || 0));
+    el.style.zIndex = String(petZ(pos));
+  }
+
+  // Piirtojärjestys syvyyden mukaan: mitä alempana lattiaa koskettaa, sitä edempänä se on.
+  // Lemmikin syvyys on tassujen kohta. zMin pitää vierailijan vierailemansa tavaran edessä.
+  function petZ(pos) {
+    return Math.max(Math.round(pos.y), pos.zMin || 0);
+  }
+
+  // Lattialla seisovan sisustuksen syvyysviiva osuutena kuvan korkeudesta (missä se koskettaa lattiaa).
+  // Matto on lattiassa kiinni ja seinäkoristeet seinällä, joten ne ovat aina lemmikkien takana.
+  var DECOR_DEPTH = { tree: 0.97, bed: 0.6, plant: 0.97 };
+
+  function decorDepth(id) {
+    var f = DECOR_DEPTH[id];
+    var b = f && decorBox(id);
+    return b ? Math.round(b.top + b.h * f) : 0;
   }
 
   function decorBox(id) {
@@ -605,8 +625,9 @@
     if (!p || !el || visit || !room.spots[petId]) return false;
     var steps = visitPlan(p, decorId);
     if (!steps) return false;
-    // Vierailulla oleva lemmikki piirretään muiden eteen, jotta sen näkee ja voi napauttaa.
-    steps.forEach(function (st) { if (st.pos) st.pos.z = 1000; });
+    // Vierailija piirretään vierailemansa tavaran eteen (esim. kissa kiipeilypuun tasanteella).
+    var zMin = DECOR_DEPTH[decorId] ? decorDepth(decorId) + 1 : 0;
+    steps.forEach(function (st) { if (st.pos) st.pos.zMin = zMin; });
     steps.push({ pos: room.spots[petId], ms: 1300 }); // takaisin omalle paikalle
     visit = { petId: petId, decorId: decorId, timers: [] };
     el.classList.add('busy');
@@ -641,10 +662,18 @@
     }
 
     if (st.pos) {
+      // Kävellessä pidetään suurempi syvyys (alku- tai loppupaikan), jotta lemmikki ei
+      // katoa tavaran taakse kesken matkan; lopullinen syvyys asetetaan perillä.
+      var fromZ = Number(el.style.zIndex) || 0;
+      var toZ = petZ(st.pos);
       el.style.transitionDuration = st.ms + 'ms';
       el.classList.add(st.move || 'walking');
       placePet(el, st.pos);
-      later(st.ms, arrive);
+      el.style.zIndex = String(Math.max(fromZ, toZ));
+      later(st.ms, function () {
+        el.style.zIndex = String(toZ);
+        arrive();
+      });
     } else {
       arrive();
     }
@@ -671,8 +700,14 @@
     if (!el) return;
     el.classList.remove.apply(el.classList, MOVE_CLASSES.concat(ACT_CLASSES, ['busy']));
     if (returnHome && room.spots[id]) {
+      var fromZ = Number(el.style.zIndex) || 0;
       el.style.transitionDuration = '600ms';
       placePet(el, room.spots[id]);
+      var homeZ = Number(el.style.zIndex);
+      el.style.zIndex = String(Math.max(fromZ, homeZ));
+      setTimeout(function () {
+        if (!visit || visit.petId !== id) el.style.zIndex = String(homeZ);
+      }, 600);
     }
     liveUpdate();
   }
