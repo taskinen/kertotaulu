@@ -314,26 +314,20 @@ p { margin: 0 0 10px; }
     linear-gradient(var(--wall) 0, var(--wall-2) 54%, var(--floor) 54%, var(--floor-2) 100%);
   border: 3px solid #F3D3AE;
   box-shadow: inset 0 -8px 0 rgba(0, 0, 0, 0.05);
+  isolation: isolate; /* lemmikkien z-index pysyy huoneen sisällä, peitekerros jää aina päälle */
 }
 .decor { position: absolute; pointer-events: none; }
 .decor svg { display: block; width: 100%; height: auto; }
 .decor-window { top: 6%; right: 7%; width: 30%; max-width: 150px; }
 .decor-painting { top: 9%; left: 8%; width: 22%; max-width: 110px; }
-.decor-rug { bottom: 4%; left: 12%; width: 76%; }
-.decor-bed { bottom: 8%; left: 4%; width: 36%; max-width: 170px; }
-.decor-tree { bottom: 3%; left: 1%; width: 20%; max-width: 100px; }
+.decor-rug { bottom: 11%; left: 12%; width: 76%; }
+.decor-bed { bottom: 6%; right: 17%; width: 40%; max-width: 190px; }
+.decor-tree { bottom: 4%; left: 1%; width: 25%; max-width: 125px; }
 .decor-plant { bottom: 3%; right: 2%; width: 15%; max-width: 80px; }
+.decor-plant.wiggle svg { transform-origin: 50% 100%; animation: plantWiggle 0.4s ease-in-out 6; }
 
-.pets {
-  position: absolute;
-  inset: 18% 3% 3% 3%;
-  display: grid;
-  grid-template-columns: repeat(var(--cols, 1), minmax(0, 1fr));
-  align-content: end;
-  align-items: end;
-  justify-items: center;
-  gap: 2px 4px;
-}
+/* Lemmikit sijoitetaan JS:llä (layoutRoom / placePet), jotta ne voivat liikkua sisustuksen luo. */
+.pets { position: absolute; inset: 0; pointer-events: none; }
 .pet {
   appearance: none;
   border: 0;
@@ -341,31 +335,62 @@ p { margin: 0 0 10px; }
   padding: 0;
   font: inherit;
   color: var(--ink);
-  position: relative;
-  width: 100%;
-  max-width: 230px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 120px;
+  display: block;
   cursor: pointer;
+  pointer-events: auto;
+  transform-origin: 50% 100%;
+  transition: transform 1.2s ease-in-out;
 }
-.pets[style*="--cols:1"] .pet { max-width: 250px; }
+.pet.no-anim { transition: none !important; }
+.pet.climbing { transition-timing-function: linear; }
+.pet.jumping { transition-timing-function: cubic-bezier(.3, -0.6, .7, 1); }
 .pet-art { display: block; width: 100%; aspect-ratio: 1; animation: breathe 3.2s ease-in-out infinite; animation-delay: var(--d, 0s); transform-origin: 50% 100%; }
 .pet-art svg { width: 100%; height: 100%; display: block; overflow: visible; }
 .pet:active .pet-art { transform: scale(0.96); }
 .pet-name {
+  position: absolute;
+  left: 50%;
+  top: calc(100% - 6px);
+  transform: translateX(-50%);
   background: rgba(255, 255, 255, 0.92);
   border-radius: 999px;
   padding: 2px 12px;
   font-weight: 900;
   font-size: 16px;
-  margin-top: -4px;
   max-width: 100%;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   box-shadow: 0 2px 0 rgba(0, 0, 0, 0.08);
+  transition: opacity 0.3s;
 }
+.pet.busy .pet-name, .pet.busy .bubble { opacity: 0; }
+
+/* Sisustusvierailut */
+.pet.walking .pet-art { animation: walk 0.42s ease-in-out infinite; }
+.pet.climbing .pet-art { animation: climb 0.28s ease-in-out infinite; }
+.pet.act-sleep .pet-art { animation: breathe 4.5s ease-in-out infinite; }
+.pet.act-roll .pet-art { transform-origin: 50% 58%; animation: roll 1.8s ease-in-out 2; }
+.pet.act-wag .pet-art { animation: hop 0.7s ease infinite; }
+.pet.act-sniff .pet-art { animation: sniff 0.55s ease-in-out infinite; }
+.pet.act-paw .pet-art { animation: paw 0.6s ease-in-out infinite; }
+.zzz {
+  position: absolute;
+  right: 4%;
+  top: -10%;
+  font-weight: 900;
+  font-size: 24px;
+  color: #5B6FD8;
+  opacity: 0;
+  pointer-events: none;
+}
+.pet.act-sleep .zzz { animation: zzz 2.2s ease-out infinite; }
+.pet-svg.mood-sleep .tail { animation: none; transform: rotate(12deg); }
+.fx-fun { font-size: 24px; color: var(--green-dark); }
 .bubble {
   position: absolute;
   top: -4px;
@@ -884,6 +909,13 @@ p { margin: 0 0 10px; }
 @keyframes fxHeart { 0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; } 20% { opacity: 1; } 100% { transform: translate(-50%, -260%) scale(1.1); opacity: 0; } }
 @keyframes fxFloat { 0% { transform: translate(-50%, -50%); opacity: 0; } 20% { opacity: 1; } 100% { transform: translate(-50%, -220%); opacity: 0; } }
 @keyframes confetti { to { top: 105vh; transform: translateX(40px) rotate(540deg); } }
+@keyframes walk { 0%, 100% { transform: translateY(0) rotate(-3deg); } 50% { transform: translateY(-6%) rotate(3deg); } }
+@keyframes climb { 0%, 100% { transform: rotate(-6deg); } 50% { transform: rotate(6deg); } }
+@keyframes roll { 0% { transform: rotate(0); } 40% { transform: rotate(-360deg); } 55% { transform: scale(1.14, 0.86); } 70% { transform: scale(1); } 85% { transform: scale(1.1, 0.9); } 100% { transform: scale(1); } }
+@keyframes sniff { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(-9deg) translateY(4%); } }
+@keyframes paw { 0%, 100% { transform: rotate(-7deg); } 50% { transform: rotate(7deg); } }
+@keyframes plantWiggle { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-6deg); } 75% { transform: rotate(6deg); } }
+@keyframes zzz { 0% { opacity: 0; transform: translate(0, 10px) scale(0.6); } 25% { opacity: 1; } 100% { opacity: 0; transform: translate(14px, -26px) scale(1.15); } }
 
 /* Matala vaakanäkymä (puhelin vaakasuunnassa): tehtävä ja näppäimistö rinnakkain */
 @media (orientation: landscape) and (max-height: 560px) {

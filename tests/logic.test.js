@@ -336,6 +336,85 @@ test('kaupan ostot ja asusteen pukeminen', () => {
   assert.equal(s.pets[0].accessory, null);
 });
 
+test('sisustusvierailu: ei vierailua ilman sisustusta, vain omistettuun sisustukseen', () => {
+  const s = newGame();
+  assert.equal(L.pickDecorVisit(s, seeded(1)), null);
+  s.owned.decor = ['painting'];
+  assert.equal(L.pickDecorVisit(s, seeded(1)), null, 'taulu seinällä ei ole vierailukohde');
+  s.owned.decor = ['painting', 'rug'];
+  const rng = seeded(2);
+  for (let i = 0; i < 50; i++) {
+    const v = L.pickDecorVisit(s, rng);
+    assert.equal(v.decorId, 'rug');
+    assert.equal(v.petId, s.pets[0].id);
+  }
+});
+
+test('sisustusvierailu: varattua lemmikkiä ei valita', () => {
+  const s = newGame();
+  s.stars = 100;
+  L.adoptPet(s, { kind: 'dog', name: 'Nalle' });
+  s.owned.decor = ['bed'];
+  const rng = seeded(3);
+  for (let i = 0; i < 30; i++) {
+    assert.equal(L.pickDecorVisit(s, rng, [s.pets[0].id]).petId, s.pets[1].id);
+  }
+  assert.equal(L.pickDecorVisit(s, rng, s.pets.map((p) => p.id)), null);
+});
+
+test('sisustusvierailu: surullinen lemmikki menee useammin pedille', () => {
+  const s = newGame();
+  s.owned.decor = ['bed', 'rug', 'plant', 'tree'];
+  const pet = s.pets[0];
+  const rng = seeded(4);
+  const count = (n) => {
+    let beds = 0;
+    for (let i = 0; i < n; i++) if (L.pickDecorVisit(s, rng).decorId === 'bed') beds++;
+    return beds / n;
+  };
+  pet.needs = { food: 100, water: 100, fun: 100, clean: 100 };
+  const happy = count(2000);
+  pet.needs.fun = 10;
+  const sad = count(2000);
+  assert.ok(happy > 0.18 && happy < 0.32, `iloinen ${happy}`);
+  assert.ok(sad > 0.5, `surullinen ${sad}`);
+});
+
+test('ilobonus pedistä ja kiipeilypuusta, ei matosta eikä ilman omistusta', () => {
+  const s = newGame();
+  const pet = s.pets[0];
+  pet.needs.fun = 50;
+  assert.equal(L.decorBonus(s, pet.id, 'bed', 1000), 0, 'petiä ei omisteta');
+  s.owned.decor = ['bed', 'tree', 'rug'];
+  assert.equal(L.decorBonus(s, pet.id, 'rug', 1000), 0);
+  assert.equal(pet.needs.fun, 50);
+  assert.equal(L.decorBonus(s, pet.id, 'bed', 1000), L.DECOR_ACTIVITIES.bed.fun);
+  assert.equal(pet.needs.fun, 60);
+});
+
+test('ilobonuksella on jäähy lemmikkiä kohden, eikä ilo nouse yli sadan', () => {
+  const s = newGame();
+  s.stars = 100;
+  L.adoptPet(s, { kind: 'dog', name: 'Nalle' });
+  s.owned.decor = ['bed', 'tree'];
+  const [cat, dog] = s.pets;
+  cat.needs.fun = 50;
+  dog.needs.fun = 95;
+  const t0 = 10000000;
+  assert.equal(L.decorBonus(s, cat.id, 'bed', t0), 10);
+  assert.equal(L.decorBonus(s, cat.id, 'tree', t0 + 60000), 0, 'jäähy koskee kaikkea sisustusta');
+  assert.equal(L.decorBonus(s, dog.id, 'tree', t0 + 60000), 5, 'toisella lemmikillä oma jäähy, katto 100');
+  assert.equal(dog.needs.fun, 100);
+  assert.equal(L.decorBonus(s, cat.id, 'tree', t0 + L.DECOR_BONUS_COOLDOWN_MS), 10);
+  assert.equal(cat.needs.fun, 70);
+});
+
+test('migraatio säilyttää ilobonuksen jäähyn', () => {
+  const s = S.migrate({ created: true, pets: [{ id: 'p1', kind: 'cat', name: 'Mirri', lastDecorBonus: 12345 }] });
+  assert.equal(s.pets[0].lastDecorBonus, 12345);
+  assert.equal(S.migrate({ created: true, pets: [{ id: 'p1' }] }).pets[0].lastDecorBonus, 0);
+});
+
 test('nimet siistitään ja lyhennetään', () => {
   assert.equal(L.cleanName('  Aino   Maria  '), 'Aino Maria');
   assert.equal(L.cleanName('abcdefghijklmnopq'), 'abcdefghijkl');

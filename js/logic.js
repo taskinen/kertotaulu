@@ -86,6 +86,16 @@
     ]
   };
 
+  // Sisustus, jota lemmikit käyttävät kotinäkymässä. fun = ilobonus vierailusta.
+  var DECOR_ACTIVITIES = {
+    bed: { fun: 10 },
+    tree: { fun: 10 },
+    rug: { fun: 0 },
+    plant: { fun: 0 }
+  };
+  // Ilobonus tulee enintään kerran tässä ajassa lemmikkiä kohden, jotta lelut pysyvät tarpeellisina.
+  var DECOR_BONUS_COOLDOWN_MS = 4 * 60 * 1000;
+
   // ---- Apurit ---------------------------------------------------------
   function clamp(v, min, max) {
     return Math.max(min, Math.min(max, v));
@@ -94,6 +104,17 @@
   function cleanName(s, max) {
     var chars = Array.from(String(s == null ? '' : s).replace(/\s+/g, ' ').trim());
     return chars.slice(0, max || NAME_MAX).join('');
+  }
+
+  function weightedPick(list, weightFn, rng) {
+    var weights = list.map(weightFn);
+    var total = weights.reduce(function (s, w) { return s + w; }, 0);
+    var r = (rng || Math.random)() * total;
+    for (var i = 0; i < list.length; i++) {
+      r -= weights[i];
+      if (r < 0) return list[i];
+    }
+    return list[list.length - 1];
   }
 
   function addStars(state, n) {
@@ -435,7 +456,8 @@
       accessory: null,
       needs: { food: n.food, water: n.water, fun: n.fun, clean: n.clean },
       hearts: 0,
-      lastPetted: 0
+      lastPetted: 0,
+      lastDecorBonus: 0
     };
   }
 
@@ -493,6 +515,32 @@
     return true;
   }
 
+  // ---- Sisustuksen käyttö -------------------------------------------------
+  // Valitsee lemmikin ja omistetun sisustuksen seuraavaa vierailua varten, tai null.
+  function pickDecorVisit(state, rng, excludePetIds) {
+    var ex = excludePetIds || [];
+    var items = Object.keys(DECOR_ACTIVITIES).filter(function (id) { return isOwned(state, 'decor', id); });
+    var pets = state.pets.filter(function (p) { return ex.indexOf(p.id) === -1; });
+    if (!items.length || !pets.length) return null;
+    var pet = weightedPick(pets, function (p) { return petMood(p) === 'sad' ? 2 : 1; }, rng);
+    // Väsynyt tai surullinen lemmikki hakeutuu useammin pedille.
+    var tired = petMood(pet) === 'sad' || pet.needs.fun < NEEDY_LEVEL;
+    var decorId = weightedPick(items, function (id) { return id === 'bed' && tired ? 4 : 1; }, rng);
+    return { petId: pet.id, decorId: decorId };
+  }
+
+  // Antaa vierailun ilobonuksen, jos se on käytettävissä. Palauttaa ilon todellisen nousun.
+  function decorBonus(state, petId, decorId, now) {
+    var pet = findPet(state, petId);
+    var act = DECOR_ACTIVITIES[decorId];
+    if (!pet || !act || !act.fun || !isOwned(state, 'decor', decorId)) return 0;
+    if (pet.lastDecorBonus && now - pet.lastDecorBonus < DECOR_BONUS_COOLDOWN_MS) return 0;
+    var before = pet.needs.fun;
+    pet.needs.fun = clamp(before + act.fun, 0, 100);
+    pet.lastDecorBonus = now;
+    return pet.needs.fun - before;
+  }
+
   function renamePet(state, petId, name) {
     var pet = findPet(state, petId);
     var clean = cleanName(name);
@@ -524,6 +572,8 @@
     PET_PRICES: PET_PRICES,
     NAME_MAX: NAME_MAX,
     SHOP: SHOP,
+    DECOR_ACTIVITIES: DECOR_ACTIVITIES,
+    DECOR_BONUS_COOLDOWN_MS: DECOR_BONUS_COOLDOWN_MS,
 
     cleanName: cleanName,
     addStars: addStars,
@@ -563,6 +613,8 @@
     isOwned: isOwned,
     buyItem: buyItem,
     setAccessory: setAccessory,
+    pickDecorVisit: pickDecorVisit,
+    decorBonus: decorBonus,
     renamePet: renamePet
   };
 });

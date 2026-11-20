@@ -43,6 +43,9 @@ Skriptit ovat tavallisia `<script>`-tiedostoja yhteisen `window.KT`-nimiavaruude
 - Tallennusmuodon muutokset: lisää oletusarvo `defaultState()`-funktioon ja tarvittaessa korjaus `migrate()`-funktioon, jotta vanhat tallennukset toimivat. Nosta `VERSION`, jos muoto muuttuu yhteensopimattomasti.
 - Tallennus tehdään heti jokaisen muutoksen jälkeen. Älä lisää tallennusta `pagehide`-tapahtumaan, koska se voisi ylikirjoittaa toisen välilehden tilan.
 - Eläinten tarpeet laskevat vain pelatessa: ajastin käy vain, kun välilehti on näkyvissä, eikä aloitus-, luonti- tai aikuisten näkymissä.
+- Kotinäkymän lemmikit sijoitetaan pikseleinä JS:llä (`layoutRoom()`/`placePet()` tiedostossa `js/ui.js`), eivät CSS-ruudukolla, jotta ne voivat liikkua sisustuksen luo.
+- Sisustusvierailut: noin 10–20 sekunnin välein yksi lemmikki käy omistetussa sisustuksessa (kissa kiipeää kiipeilypuuhun, koira leikkii sen juurella, peti = nukkuminen, matto = kieriminen, kukka = nuuskiminen tai tassuttelu). Vierailun vaiheet määritellään `visitPlan()`-funktiossa, ja valinta ja ilobonus ovat `js/logic.js`:ssä (`pickDecorVisit()`, `decorBonus()`, `DECOR_ACTIVITIES`). Peti ja kiipeilypuu antavat +10 iloa enintään kerran neljässä minuutissa lemmikkiä kohden. Napautus keskeyttää vierailun.
+- `.room` on oma pinoamiskontekstinsa (`isolation: isolate`), jotta lemmikkien `z-index` ei nouse peitekerroksen päälle.
 - Commit-viesteissä ja muissa teksteissä ei mainita tekoälytyökaluja.
 
 ## Ajaminen ja testit
@@ -54,7 +57,7 @@ node --test tests/              # yksikkötestit
 
 Peliä voi myös kokeilla avaamalla `index.html`:n suoraan selaimessa. Service worker ja manifesti ovat silloin pois käytöstä.
 
-Selaimen konsolissa `KT.ui.debug.state()` palauttaa pelitilan ja `KT.ui.debug.tick(sekunnit)` kuluttaa tarpeita testausta varten.
+Selaimen konsolissa `KT.ui.debug.state()` palauttaa pelitilan ja `KT.ui.debug.tick(sekunnit)` kuluttaa tarpeita testausta varten. `KT.ui.debug.visit('p1', 'bed')` käynnistää sisustusvierailun heti, ja `KT.ui.debug.autoVisits(false)` pysäyttää automaattiset vierailut.
 
 ## Julkaisu
 

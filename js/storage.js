@@ -102,7 +102,8 @@
       accessory: typeof raw.accessory === 'string' ? raw.accessory : null,
       needs: needs,
       hearts: toInt(raw.hearts, 0, 0),
-      lastPetted: 0
+      lastPetted: 0,
+      lastDecorBonus: toInt(raw.lastDecorBonus, 0, 0)
     };
   }
 

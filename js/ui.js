@@ -28,7 +28,8 @@
     sheetPetId: null,
     modalOk: null,
     gate: null,
-    joyUntil: {}
+    joyUntil: {},
+    moodOverride: {} // lemmikin ilme sisustusvierailun aikana (esim. 'sleep')
   };
 
   var app = document.getElementById('app');
@@ -109,6 +110,7 @@
   }
 
   function displayMood(p) {
+    if (ui.moodOverride[p.id]) return ui.moodOverride[p.id];
     return (ui.joyUntil[p.id] || 0) > Date.now() ? 'joy' : L.petMood(p);
   }
 
@@ -118,6 +120,7 @@
 
   function go(name) {
     clearTimeout(ui.advanceTimer);
+    clearTimeout(visitTimer);
     closeOverlay();
     toastEl.classList.remove('show');
     ui.screen = name;
@@ -128,6 +131,7 @@
   }
 
   function render() {
+    cancelVisit(false);
     var sc = SCREENS[ui.screen];
     app.className = 'screen-' + ui.screen;
     app.innerHTML = sc.html();
@@ -442,19 +446,18 @@
     return '<button class="pet" data-action="openPet" data-id="' + p.id + '" data-mood="' + mood + '" style="--d:' + (-i * 0.7).toFixed(1) + 's" aria-label="Hoida: ' + esc(p.name) + '">' +
       '<span class="bubble' + (need ? ' show' : '') + '">' + (need ? NEED_INFO[need].ask : '') + '</span>' +
       '<span class="pet-art">' + A.pet(p, mood) + '</span>' +
+      '<span class="zzz" aria-hidden="true">Zzz</span>' +
       '<span class="pet-name">' + esc(p.name) + '</span></button>';
   }
 
   SCREENS.home = {
     html: function () {
-      var n = state.pets.length;
-      var cols = n <= 1 ? 1 : (n === 2 || n === 4) ? 2 : 3;
       return '<header class="topbar home-top">' +
         '<button class="me" data-action="go" data-to="profile" aria-label="Muokkaa hahmoa">' +
         '<span class="me-avatar">' + A.avatar(state.player.avatar) + '</span><span class="me-name">' + esc(state.player.name) + '</span></button>' +
         starPill() + '</header>' +
         '<section class="room" aria-label="Lemmikkien koti">' + roomDecorHTML() +
-        '<div class="pets" style="--cols:' + cols + '">' + state.pets.map(petCardHTML).join('') + '</div></section>' +
+        '<div class="pets">' + state.pets.map(petCardHTML).join('') + '</div></section>' +
         '<p class="room-hint">Napauta lemmikkiä hoitaaksesi sitä.</p>' +
         '<div class="home-actions">' +
         '<button class="btn btn-primary btn-big btn-play" data-action="startRound">Laske ja ansaitse ⭐</button>' +
@@ -465,8 +468,238 @@
         '</div>' +
         '<button class="link-btn" data-action="go" data-to="gate">Aikuisille</button>' +
         '</div>';
+    },
+    mount: function () {
+      layoutRoom();
+      scheduleVisit(5000 + Math.random() * 4000);
     }
   };
+
+  // ---- Huone: lemmikkien paikat ja vierailut sisustuksessa ---------------------
+  // Lemmikit sijoitetaan huoneeseen pikseleinä, jotta ne voivat kävellä sisustuksen luo.
+  var room = { s: 120, spots: {} };
+  var visit = null; // { petId, decorId, timers: [] }
+  var visitTimer = null;
+  var autoVisits = true; // testauksessa voi kytkeä pois (KT.ui.debug.autoVisits)
+  var MOVE_CLASSES = ['walking', 'climbing', 'jumping'];
+  var ACT_CLASSES = ['act-sleep', 'act-roll', 'act-wag', 'act-sniff', 'act-paw'];
+
+  function petEl(id) {
+    return document.querySelector('.pet[data-id="' + id + '"]');
+  }
+
+  function layoutRoom() {
+    var roomEl = $('.room');
+    if (!roomEl) return;
+    var W = roomEl.clientWidth;
+    var H = roomEl.clientHeight;
+    var n = state.pets.length;
+    var cols = n <= 1 ? 1 : (n === 2 || n === 4) ? 2 : 3;
+    var rows = Math.ceil(n / cols);
+    var label = 26;
+    var cellW = (W * 0.94) / cols;
+    // Kotipaikat ovat lattialla hieman takana (jalat 80 %:n korkeudella), jotta sisustus
+    // ja vierailut mahtuvat etualalle. Rivit pinotaan ylöspäin.
+    var feet = H * 0.8;
+    var rowStep = function (size) { return size * 0.92 + label * 0.4; };
+    var maxByHeight = (feet - H * 0.05 - (rows - 1) * label * 0.4) / (1 + (rows - 1) * 0.92);
+    var s = Math.max(60, Math.min(cellW * 0.98, n === 1 ? 250 : 230, maxByHeight));
+    room.s = s;
+    room.spots = {};
+    state.pets.forEach(function (p, i) {
+      var r = Math.floor(i / cols);
+      var inRow = Math.min(cols, n - r * cols);
+      var c = i % cols;
+      room.spots[p.id] = {
+        x: W / 2 + (c - (inRow - 1) / 2) * cellW,
+        y: feet - (rows - 1 - r) * rowStep(s),
+        k: 1
+      };
+    });
+    state.pets.forEach(function (p) {
+      var el = petEl(p.id);
+      if (!el) return;
+      el.classList.add('no-anim');
+      placePet(el, room.spots[p.id]);
+    });
+    void roomEl.offsetWidth;
+    $all('.pet.no-anim').forEach(function (el) { el.classList.remove('no-anim'); });
+  }
+
+  // pos.x = keskikohta, pos.y = jalkojen kohta, pos.k = mittakaava (huoneen pikseleinä).
+  function placePet(el, pos) {
+    var s = room.s;
+    el.style.width = s + 'px';
+    el.style.transform = 'translate(' + (pos.x - s / 2).toFixed(1) + 'px,' + (pos.y - s).toFixed(1) + 'px) scale(' + (pos.k || 1).toFixed(3) + ')';
+    el.style.zIndex = String(Math.round(pos.y) + (pos.z || 0));
+  }
+
+  function decorBox(id) {
+    var roomEl = $('.room');
+    var d = $('.decor-' + id);
+    if (!roomEl || !d) return null;
+    var r = roomEl.getBoundingClientRect();
+    var b = d.getBoundingClientRect();
+    var left = b.left - r.left - roomEl.clientLeft;
+    var top = b.top - r.top - roomEl.clientTop;
+    return { left: left, top: top, w: b.width, h: b.height, right: left + b.width, bottom: top + b.height, cx: left + b.width / 2 };
+  }
+
+  // Vierailun vaiheet: pos = minne liikutaan (ms, move-luokka), sitten act-luokka, ilme, bonus ja odotus.
+  function visitPlan(p, decorId) {
+    var b = decorBox(decorId);
+    if (!b) return null;
+    var s = room.s;
+    var k;
+    switch (decorId) {
+      case 'bed':
+        k = Math.min(1, b.w * 0.62 / s);
+        return [
+          { pos: { x: b.cx, y: b.top + b.h * 0.74, k: k }, ms: 1400 },
+          { act: 'act-sleep', mood: 'sleep', bonus: true, stay: 7000 }
+        ];
+      case 'tree':
+        k = Math.min(1, b.w * 0.95 / s);
+        if (p.kind === 'cat') {
+          return [
+            { pos: { x: b.left + b.w * 0.5, y: b.bottom - 4, k: k }, ms: 1400 },
+            { pos: { x: b.left + b.w * 0.67, y: b.top + b.h * 0.19, k: k }, ms: 1100, move: 'climbing', mood: 'joy', bonus: true, stay: 5500 },
+            { pos: { x: b.left + b.w * 0.5, y: b.bottom - 4, k: k }, ms: 500, move: 'jumping' }
+          ];
+        }
+        k = Math.min(1, b.w * 1.1 / s);
+        return [
+          { pos: { x: b.right + s * k * 0.2, y: b.bottom - 2, k: k }, ms: 1400 },
+          { act: 'act-wag', mood: 'joy', bonus: true, stay: 4500 }
+        ];
+      case 'rug':
+        k = Math.min(1, b.w * 0.42 / s);
+        return [
+          { pos: { x: b.cx, y: b.top + b.h * 0.72, k: k }, ms: 1300 },
+          { act: 'act-roll', mood: 'joy', stay: 3600 }
+        ];
+      case 'plant':
+        k = Math.min(1, b.w * 1.5 / s);
+        return [
+          { pos: { x: b.left - s * k * 0.28, y: b.bottom - 2, k: k }, ms: 1300 },
+          { act: p.kind === 'dog' ? 'act-sniff' : 'act-paw', wiggle: 'plant', stay: 3200 }
+        ];
+      default:
+        return null;
+    }
+  }
+
+  function setVisitMood(id, mood) {
+    if (mood) ui.moodOverride[id] = mood;
+    else delete ui.moodOverride[id];
+    liveUpdate();
+  }
+
+  function later(ms, fn) {
+    if (visit) visit.timers.push(setTimeout(fn, ms));
+  }
+
+  function startVisit(petId, decorId) {
+    var p = L.findPet(state, petId);
+    var el = petEl(petId);
+    if (!p || !el || visit || !room.spots[petId]) return false;
+    var steps = visitPlan(p, decorId);
+    if (!steps) return false;
+    // Vierailulla oleva lemmikki piirretään muiden eteen, jotta sen näkee ja voi napauttaa.
+    steps.forEach(function (st) { if (st.pos) st.pos.z = 1000; });
+    steps.push({ pos: room.spots[petId], ms: 1300 }); // takaisin omalle paikalle
+    visit = { petId: petId, decorId: decorId, timers: [] };
+    el.classList.add('busy');
+    runVisitStep(steps, 0);
+    return true;
+  }
+
+  function runVisitStep(steps, i) {
+    if (!visit) return;
+    var el = petEl(visit.petId);
+    if (!el) { cancelVisit(false); return; }
+    if (i >= steps.length) {
+      el.classList.remove('busy');
+      el.style.transitionDuration = '';
+      visit = null;
+      return;
+    }
+    var st = steps[i];
+    el.classList.remove.apply(el.classList, ACT_CLASSES);
+    setVisitMood(visit.petId, st.mood || null);
+
+    function arrive() {
+      if (!visit) return;
+      el.classList.remove.apply(el.classList, MOVE_CLASSES);
+      if (st.act) el.classList.add(st.act);
+      if (st.bonus) giveDecorBonus(el);
+      if (st.wiggle) {
+        var d = $('.decor-' + st.wiggle);
+        if (d) restartAnim(d, 'wiggle');
+      }
+      later(st.stay || 0, function () { runVisitStep(steps, i + 1); });
+    }
+
+    if (st.pos) {
+      el.style.transitionDuration = st.ms + 'ms';
+      el.classList.add(st.move || 'walking');
+      placePet(el, st.pos);
+      later(st.ms, arrive);
+    } else {
+      arrive();
+    }
+  }
+
+  function giveDecorBonus(el) {
+    var gained = L.decorBonus(state, visit.petId, visit.decorId, Date.now());
+    if (gained > 0) {
+      save();
+      fxAt(el, 'fx-float fx-fun', '😊 +' + Math.round(gained), 0, -10, 0);
+      liveUpdate();
+    }
+  }
+
+  // Keskeyttää vierailun. returnHome: lemmikki palaa paikalleen (napautus herättää).
+  function cancelVisit(returnHome) {
+    if (!visit) return;
+    var id = visit.petId;
+    visit.timers.forEach(clearTimeout);
+    visit = null;
+    delete ui.moodOverride[id];
+    $all('.decor.wiggle').forEach(function (d) { d.classList.remove('wiggle'); });
+    var el = petEl(id);
+    if (!el) return;
+    el.classList.remove.apply(el.classList, MOVE_CLASSES.concat(ACT_CLASSES, ['busy']));
+    if (returnHome && room.spots[id]) {
+      el.style.transitionDuration = '600ms';
+      placePet(el, room.spots[id]);
+    }
+    liveUpdate();
+  }
+
+  function scheduleVisit(delay) {
+    clearTimeout(visitTimer);
+    visitTimer = setTimeout(maybeStartVisit, delay != null ? delay : 10000 + Math.random() * 10000);
+  }
+
+  function maybeStartVisit() {
+    if (ui.screen !== 'home') return;
+    if (autoVisits && !visit && !document.hidden && !overlay.classList.contains('open')) {
+      var pick = L.pickDecorVisit(state, Math.random);
+      if (pick) startVisit(pick.petId, pick.decorId);
+    }
+    scheduleVisit();
+  }
+
+  var resizeTimer = null;
+  window.addEventListener('resize', function () {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function () {
+      if (ui.screen !== 'home') return;
+      cancelVisit(false);
+      layoutRoom();
+    }, 150);
+  });
 
   function liveUpdate() {
     if (ui.screen === 'home') {
@@ -492,6 +725,7 @@
   ACTIONS.openPet = function (el) {
     var p = L.findPet(state, el.dataset.id);
     if (!p) return;
+    if (visit && visit.petId === p.id) cancelVisit(true); // napautus herättää
     snd.play('tap');
     ui.sheetPetId = p.id;
     var meters = L.NEED_KEYS.map(function (k) {
@@ -948,7 +1182,7 @@
       return topbar('Kauppa') + '<div class="shop">' +
         '<section class="shop-sec"><h2>Adoptoi lemmikki</h2>' + pets + '</section>' +
         '<section class="shop-sec"><h2>Asusteet</h2><p class="muted">Pue asusteet lemmikille sen hoitosivulla.</p>' + items('accessories') + '</section>' +
-        '<section class="shop-sec"><h2>Sisustus</h2><p class="muted">Sisustus tulee lemmikkien kotiin.</p>' + items('decor') + '</section>' +
+        '<section class="shop-sec"><h2>Sisustus</h2><p class="muted">Lemmikit leikkivät ja lepäävät sisustuksessa. Peti ja kiipeilypuu piristävät niitä.</p>' + items('decor') + '</section>' +
         '</div>';
     }
   };
@@ -1315,7 +1549,9 @@
       state: function () { return state; },
       save: save,
       render: render,
-      tick: function (seconds) { L.decayAll(state, seconds); save(); liveUpdate(); }
+      tick: function (seconds) { L.decayAll(state, seconds); save(); liveUpdate(); },
+      visit: function (petId, decorId) { cancelVisit(false); return startVisit(petId, decorId); },
+      autoVisits: function (on) { autoVisits = !!on; }
     }
   };
 })();

@@ -67,6 +67,11 @@
         '<path d="M70 ' + (y + 3) + ' Q80 ' + (y - 9) + ' 90 ' + (y + 3) + '"/>' +
         '<path d="M110 ' + (y + 3) + ' Q120 ' + (y - 9) + ' 130 ' + (y + 3) + '"/></g>';
     }
+    if (mood === 'sleep') {
+      return '<g fill="none" stroke="' + INK + '" stroke-width="4.5" stroke-linecap="round">' +
+        '<path d="M70 ' + (y + 1) + ' Q80 ' + (y + 9) + ' 90 ' + (y + 1) + '"/>' +
+        '<path d="M110 ' + (y + 1) + ' Q120 ' + (y + 9) + ' 130 ' + (y + 1) + '"/></g>';
+    }
     var down = mood === 'sad' ? 3 : 0;
     function one(x) {
       return '<ellipse cx="' + x + '" cy="' + y + '" rx="10" ry="11.5" fill="#fff"/>' +

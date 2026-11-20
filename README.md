@@ -11,6 +11,7 @@ Kertotaulupeli 2.-luokkalaisille. Laske kertolaskuja, ansaitse tähtiä ja hoida
 - Tähtiä ansaitaan laskemalla kertolaskuja: oikeasta vastauksesta saa tähden, viiden putkesta bonuksen ja hyvästä kierroksesta lisää.
 - Alussa käytössä ovat 2, 5 ja 10 kertotaulut. Kun ne ovat hallussa, uusia tauluja avautuu aina 10 kertotauluun asti.
 - Tähdillä voi myös adoptoida lisää lemmikkejä ja ostaa asusteita ja sisustusta.
+- Lemmikit käyttävät sisustusta itsestään: kissa kiipeää kiipeilypuuhun, lemmikit nukkuvat pedillä, kierivät matolla ja nuuskivat kukkaa. Peti ja kiipeilypuu myös piristävät niitä.
 
 Eläinten tarpeet laskevat vain silloin, kun peli on auki. Eläimet eivät koskaan kuole tai karkaa.
 
