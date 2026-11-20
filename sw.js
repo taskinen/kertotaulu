@@ -2,7 +2,7 @@
  * Kertotassut – service worker offline-käyttöä varten.
  * NOSTA CACHE-versiota aina, kun jokin tiedosto muuttuu, jotta pelaajat saavat uuden version.
  */
-var CACHE = 'kertotassut-v1';
+var CACHE = 'kertotassut-v2';
 var FILES = [
   './',
   'index.html',

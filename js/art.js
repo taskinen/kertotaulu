@@ -233,7 +233,10 @@
     if (style === 1) {
       s += '<path d="M50 92 C 48 46, 78 34, 100 34 C 122 34, 152 46, 150 92 L 154 152 Q 140 162 126 150 L 74 150 Q 60 162 46 152 Z" fill="' + hair + '"/>';
     } else if (style === 2) {
-      s += '<circle cx="42" cy="106" r="21" fill="' + hair + '"/><circle cx="158" cy="106" r="21" fill="' + hair + '"/>';
+      // Saparot ja pompulat piirretään pään taakse, joten korvat ja pää jäävät aina niiden eteen.
+      s += '<circle cx="38" cy="70" r="20" fill="' + hair + '"/><circle cx="162" cy="70" r="20" fill="' + hair + '"/>';
+      s += '<ellipse cx="54" cy="72" rx="5.5" ry="9" transform="rotate(25 54 72)" fill="#FF5C8A"/>' +
+        '<ellipse cx="146" cy="72" rx="5.5" ry="9" transform="rotate(-25 146 72)" fill="#FF5C8A"/>';
     } else if (style === 3) {
       s += '<circle cx="100" cy="84" r="54" fill="' + hair + '"/>';
     }
@@ -248,7 +251,6 @@
       s += '<path d="M54 98 C 50 54, 76 40, 100 40 C 124 40, 150 54, 146 98 C 142 80, 132 68, 118 62 C 104 70, 84 70, 74 64 C 64 72, 56 84, 54 98 Z" fill="' + hair + '"/>';
     } else if (style === 2) {
       s += '<path d="M55 90 C 54 54, 80 40, 104 41 C 128 42, 150 60, 145 90 C 130 70, 100 60, 76 66 C 66 70, 58 80, 55 90 Z" fill="' + hair + '"/>';
-      s += '<circle cx="58" cy="94" r="6" fill="#FF5C8A"/><circle cx="142" cy="94" r="6" fill="#FF5C8A"/>';
     } else {
       s += '<path d="M58 88 C 58 52, 80 44, 100 44 C 120 44, 142 52, 142 88 C 130 70, 70 70, 58 88Z" fill="' + hair + '"/>';
       for (var a = 165; a <= 375; a += 21) {
