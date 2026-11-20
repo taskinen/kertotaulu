@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="fi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Kertotassut</title>
+  <meta name="description" content="Kertotaulupeli, jossa lasketaan tähtiä ja hoidetaan kissoja ja koiria.">
+  <meta name="theme-color" content="#FF7A59">
+  <meta name="color-scheme" content="light">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Kertotassut">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="paw" viewBox="0 0 24 24">
+      <ellipse cx="12" cy="16" rx="5.6" ry="4.8"/>
+      <ellipse cx="5.2" cy="10.2" rx="2.3" ry="2.8"/>
+      <ellipse cx="9.4" cy="5.6" rx="2.3" ry="2.9"/>
+      <ellipse cx="14.6" cy="5.6" rx="2.3" ry="2.9"/>
+      <ellipse cx="18.8" cy="10.2" rx="2.3" ry="2.8"/>
+    </symbol>
+  </svg>
+
+  <main id="app" aria-live="off">
+    <noscript>Kertotassut tarvitsee JavaScriptin toimiakseen.</noscript>
+  </main>
+  <div id="overlay" aria-hidden="true"></div>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <div id="fx" aria-hidden="true"></div>
+
+  <script src="js/logic.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/art.js"></script>
+  <script src="js/sound.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
