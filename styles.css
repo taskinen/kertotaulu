@@ -351,11 +351,15 @@ p { margin: 0 0 10px; }
 .pet-art { display: block; width: 100%; aspect-ratio: 1; animation: breathe 3.2s ease-in-out infinite; animation-delay: var(--d, 0s); transform-origin: 50% 100%; }
 .pet-art svg { width: 100%; height: 100%; display: block; overflow: visible; }
 .pet:active .pet-art { transform: scale(0.96); }
+/* Nimilaput omassa kerroksessaan kaiken lemmikki- ja sisustuskerroksen päällä (sijainti JS:llä). */
+.pet-labels { position: absolute; inset: 0; z-index: 100000; pointer-events: none; }
 .pet-name {
   position: absolute;
-  left: 50%;
-  top: calc(100% - 6px);
+  left: 0;
+  top: 0;
   transform: translateX(-50%);
+  pointer-events: auto;
+  cursor: pointer;
   background: rgba(255, 255, 255, 0.92);
   border-radius: 999px;
   padding: 2px 12px;
@@ -368,7 +372,8 @@ p { margin: 0 0 10px; }
   box-shadow: 0 2px 0 rgba(0, 0, 0, 0.08);
   transition: opacity 0.3s;
 }
-.pet.busy .pet-name, .pet.busy .bubble { opacity: 0; }
+.pet-name.away { opacity: 0; pointer-events: none; }
+.pet.busy .bubble { opacity: 0; }
 
 /* Sisustusvierailut */
 .pet.walking .pet-art { animation: walk 0.42s ease-in-out infinite; }

@@ -446,8 +446,13 @@
     return '<button class="pet" data-action="openPet" data-id="' + p.id + '" data-mood="' + mood + '" style="--d:' + (-i * 0.7).toFixed(1) + 's" aria-label="Hoida: ' + esc(p.name) + '">' +
       '<span class="bubble' + (need ? ' show' : '') + '">' + (need ? NEED_INFO[need].ask : '') + '</span>' +
       '<span class="pet-art">' + A.pet(p, mood) + '</span>' +
-      '<span class="zzz" aria-hidden="true">Zzz</span>' +
-      '<span class="pet-name">' + esc(p.name) + '</span></button>';
+      '<span class="zzz" aria-hidden="true">Zzz</span></button>';
+  }
+
+  // Nimilaput ovat omassa kerroksessaan kaiken päällä, joten ne näkyvät aina kokonaan.
+  // Lapun napautus avaa saman lemmikin kuin lemmikin napautus.
+  function petLabelHTML(p) {
+    return '<span class="pet-name" data-action="openPet" data-id="' + p.id + '" aria-hidden="true">' + esc(p.name) + '</span>';
   }
 
   SCREENS.home = {
@@ -457,7 +462,8 @@
         '<span class="me-avatar">' + A.avatar(state.player.avatar) + '</span><span class="me-name">' + esc(state.player.name) + '</span></button>' +
         starPill() + '</header>' +
         '<section class="room" aria-label="Lemmikkien koti">' + roomDecorHTML() +
-        '<div class="pets">' + state.pets.map(petCardHTML).join('') + '</div></section>' +
+        '<div class="pets">' + state.pets.map(petCardHTML).join('') + '</div>' +
+        '<div class="pet-labels">' + state.pets.map(petLabelHTML).join('') + '</div></section>' +
         '<p class="room-hint">Napauta lemmikkiä hoitaaksesi sitä.</p>' +
         '<div class="home-actions">' +
         '<button class="btn btn-primary btn-big btn-play" data-action="startRound">Laske ja ansaitse ⭐</button>' +
@@ -486,6 +492,16 @@
 
   function petEl(id) {
     return document.querySelector('.pet[data-id="' + id + '"]');
+  }
+
+  function labelEl(id) {
+    return document.querySelector('.pet-name[data-id="' + id + '"]');
+  }
+
+  // Lappu piilotetaan vierailun ajaksi, koska lemmikki ei ole silloin kotipaikallaan.
+  function showLabel(id, on) {
+    var lab = labelEl(id);
+    if (lab) lab.classList.toggle('away', !on);
   }
 
   function layoutRoom() {
@@ -518,9 +534,16 @@
     });
     state.pets.forEach(function (p) {
       var el = petEl(p.id);
-      if (!el) return;
-      el.classList.add('no-anim');
-      placePet(el, room.spots[p.id]);
+      if (el) {
+        el.classList.add('no-anim');
+        placePet(el, room.spots[p.id]);
+      }
+      var lab = labelEl(p.id);
+      if (lab) {
+        lab.style.left = room.spots[p.id].x.toFixed(1) + 'px';
+        lab.style.top = (room.spots[p.id].y - 6).toFixed(1) + 'px';
+        lab.style.maxWidth = Math.round(s) + 'px';
+      }
     });
     Object.keys(DECOR_DEPTH).forEach(function (id) {
       var d = $('.decor-' + id);
@@ -631,6 +654,7 @@
     steps.push({ pos: room.spots[petId], ms: 1300 }); // takaisin omalle paikalle
     visit = { petId: petId, decorId: decorId, timers: [] };
     el.classList.add('busy');
+    showLabel(petId, false);
     runVisitStep(steps, 0);
     return true;
   }
@@ -641,6 +665,7 @@
     if (!el) { cancelVisit(false); return; }
     if (i >= steps.length) {
       el.classList.remove('busy');
+      showLabel(visit.petId, true);
       el.style.transitionDuration = '';
       visit = null;
       return;
@@ -706,8 +731,13 @@
       var homeZ = Number(el.style.zIndex);
       el.style.zIndex = String(Math.max(fromZ, homeZ));
       setTimeout(function () {
-        if (!visit || visit.petId !== id) el.style.zIndex = String(homeZ);
+        if (!visit || visit.petId !== id) {
+          el.style.zIndex = String(homeZ);
+          showLabel(id, true);
+        }
       }, 600);
+    } else {
+      showLabel(id, true);
     }
     liveUpdate();
   }
